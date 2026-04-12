@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Поиск лицензий</title>
+  <style>
+    :root {
+      --bg: #07142f;
+      --panel: #0e1d3d;
+      --border: #2a446b;
+      --text: #f8fafc;
+      --muted: #a7b4c8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
+    .wrap { max-width: 980px; margin: 0 auto; }
+    h1 { margin: 0 0 4px; font-size: 24px; }
+    .sub { color: var(--muted); margin-bottom: 10px; font-size: 13px; }
+    .topbar { display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-top: 10px; }
+    .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+    input[type="text"] {
+      width: min(100%, 900px);
+      flex: 1 1 700px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #08152f;
+      color: var(--text);
+      font-size: 18px;
+      outline: none;
+    }
+    button { border: none; border-radius: 12px; padding: 13px 18px; font-size: 15px; font-weight: 700; cursor: pointer; }
+    .btn-search, .btn-refresh { background: var(--green); color: #00140a; }
+    .status { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: #09162f; color: var(--muted); font-size: 13px; }
+    .status.ok { border-left: 4px solid var(--green); }
+    .status.warn { border-left: 4px solid var(--warn); }
+    .status.err { border-left: 4px solid var(--red); }
+    .meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; color: var(--muted); }
+    .badge { border: 1px solid var(--border); border-radius: 999px; padding: 6px 10px; background: #0b1834; font-size: 12px; }
+    .empty { color: var(--muted); text-align: center; padding: 18px 0 6px; font-size: 16px; }
+    .card { border: 1px solid var(--border); border-radius: 14px; background: #0a1733; padding: 14px; margin-top: 10px; }
+.card.expired { border-color: #ef4444; box-shadow: 0 0 0 1px #ef444433 inset; }
+.expired-badge { display:inline-block; margin-top:10px; padding:8px 12px; border-radius:999px; background:#3a0f18; color:#fecaca; border:1px solid #7f1d1d; font-weight:700; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-top: 10px; }
+    .field { background: #0d1c3b; border-radius: 10px; padding: 10px; border: 1px solid #20375c; }
+    .label { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    .value { font-size: 15px; word-break: break-word; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>Поиск лицензий</h1>
+      </div>
+      <button class="btn-refresh" id="refreshBtn">Обновить</button>
+    </div>
+
+    <div id="statusBox" class="status panel">Загрузка...</div>
+
+    <div class="panel">
+      <div style="font-weight:700; margin-bottom:10px; font-size:15px;">Поиск по ID карте</div>
+      <div class="row">
+        <input id="searchInput" type="text" placeholder="Введите ID карту" />
+        <button class="btn-search" id="searchBtn">Найти</button>
+      </div>
+      
+      <div class="meta">
+        <div class="badge" id="countBadge">Записей в памяти: 0</div>
+        <div class="badge" id="updatedBadge">Последнее обновление: —</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div style="font-weight:700; margin-bottom:10px; font-size:15px;">Результат</div>
+      <div class="empty" id="resultsEmpty">Введите ID карту.</div>
+      <div id="results"></div>
+    </div>
+  </div>
+
+<script>
+const SPREADSHEET_ID = "1HQex52PJlHZ1EDsiuCGSZZS22IxqF9AmFS3bKrtd9to";
+const SHEET_NAMES = ["GOV", "LSPD", "LSCSD", "SANG", "EMS", "WN", "FIB", "Гражданский"];
+const CACHE_KEY = "license_cache_final_v1";
+
+let records = [];
+let lastUpdated = null;
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function normalize(s) {
+  return String(s ?? "").replace(/\uFEFF/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function digitsOnly(s) {
+  return String(s ?? "").replace(/\D/g, "");
+}
+
+function setStatus(text, type = "ok") {
+  const box = document.getElementById("statusBox");
+  box.textContent = text;
+  box.className = "status panel " + type;
+}
+
+function setMeta() {
+  document.getElementById("countBadge").textContent = `Записей в памяти: ${records.length}`;
+  document.getElementById("updatedBadge").textContent =
+    "Последнее обновление: " + (lastUpdated ? new Date(lastUpdated).toLocaleString("ru-RU") : "—");
+}
+
+function saveCache() {
+  localStorage.setItem(CACHE_KEY, JSON.stringify({
+    updatedAt: new Date().toISOString(),
+    records
+  }));
+}
+
+function loadCache() {
+  const raw = localStorage.getItem(CACHE_KEY);
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw);
+    records = Array.isArray(parsed.records) ? parsed.records : [];
+    lastUpdated = parsed.updatedAt || null;
+    setMeta();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+
+    if (ch === '"') {
+      if (inQuotes && next === '"') {
+        cell += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      row.push(cell);
+      cell = "";
+    } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      if (ch === '\r' && next === '\n') i++;
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += ch;
+    }
+  }
+
+  if (cell.length || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+  return rows.filter(r => r.some(c => String(c).trim() !== ""));
+}
+
+function findHeaderIndex(rows) {
+  for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    const joined = rows[i].map(normalize).join(" | ");
+    if (joined.includes("№ лицензии") || joined.includes("номер лицензии")) return i;
+  }
+  return -1;
+}
+
+function buildRecordFromRow(sheetName, row) {
+  const cells = row.map(v => String(v ?? "").trim());
+
+  // Жёсткая позиционная схема под твою таблицу:
+  // 0: № лицензии
+  // 1: Имя Фамилия
+  // 2: ID карта
+  // 3: Дата регистрации
+  // 4: Дата окончания
+  // 5: Должность / Подразделение
+  // 6: Уполномоченный сотрудник
+  // 7: Статус
+
+  const rec = {
+    structure: sheetName,
+    subdivision: cells[5] || "",
+    idCard: cells[2] || "",
+    fullName: cells[1] || "",
+    licenseNumber: cells[0] || "",
+    registrationDate: cells[3] || "",
+    expirationDate: cells[4] || "",
+    rawCells: cells
+  };
+
+  return rec;
+}
+
+function isUsefulRecord(rec) {
+  return rec.idCard && rec.idCard.trim() !== '';
+}
+
+async function loadSheet(sheetName) {
+  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Не удалось загрузить вкладку ${sheetName}`);
+
+  const text = await res.text();
+  const rows = parseCsv(text);
+  const headerIndex = findHeaderIndex(rows);
+  if (headerIndex === -1) return [];
+
+  const dataRows = rows.slice(headerIndex + 1);
+  const items = dataRows
+    .map(r => buildRecordFromRow(sheetName, r))
+    .filter(isUsefulRecord);
+
+  return items;
+}
+
+async function refreshData() {
+  setStatus("Обновление данных...", "ok");
+
+  try {
+    let all = [];
+    for (const sheetName of SHEET_NAMES) {
+      try {
+        const part = await loadSheet(sheetName);
+        all = all.concat(part);
+      } catch (_) {
+      }
+    }
+
+    records = all;
+    lastUpdated = new Date().toISOString();
+    saveCache();
+    setMeta();
+    setStatus(`Обновлено. Загружено записей: ${records.length}`, "ok");
+  } catch (e) {
+    const hasCache = loadCache();
+    if (hasCache) {
+      setStatus("Не удалось обновить из сети. Показана локальная версия.", "warn");
+    } else {
+      records = [];
+      lastUpdated = null;
+      setMeta();
+      setStatus("Обновить данные не получилось, и локального кэша нет.", "err");
+    }
+  }
+}
+
+function field(label, value) {
+  return `<div class="field"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(value || "—")}</div></div>`;
+}
+
+
+function parseRuDate(s) {
+  const m = String(s ?? "").trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (!m) return null;
+  const d = Number(m[1]), mo = Number(m[2]) - 1, y = Number(m[3]);
+  const dt = new Date(y, mo, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo || dt.getDate() !== d) return null;
+  dt.setHours(0,0,0,0);
+  return dt;
+}
+
+function isExpired(expirationDate) {
+  const dt = parseRuDate(expirationDate);
+  if (!dt) return false;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  return dt < today;
+}
+
+
+function renderResults(found) {
+  const container = document.getElementById("results");
+  const empty = document.getElementById("resultsEmpty");
+  container.innerHTML = "";
+
+  if (!found.length) {
+    empty.textContent = "Ничего не найдено.";
+    empty.style.display = "block";
+    return;
+  }
+
+  empty.style.display = "none";
+
+  // сортировка: сначала не просроченные, потом по дате окончания (свежие выше)
+  found.sort((a, b) => {
+    const da = parseRuDate(a.expirationDate);
+    const db = parseRuDate(b.expirationDate);
+
+    const expA = isExpired(a.expirationDate);
+    const expB = isExpired(b.expirationDate);
+
+    if (expA !== expB) return expA ? 1 : -1;
+
+    if (da && db) return db - da;
+    return 0;
+  });
+
+  // если больше одного результата — показать количество
+  if (found.length > 1) {
+    const info = document.createElement("div");
+    info.style.marginBottom = "10px";
+    info.style.color = "#a7b4c8";
+    info.textContent = "Найдено записей: " + found.length;
+    container.appendChild(info);
+  }
+
+  for (const r of found) {
+    const card = document.createElement("div");
+    const expired = isExpired(r.expirationDate);
+    card.className = expired ? "card expired" : "card";
+
+    card.innerHTML = `
+      <div style="font-size:26px; font-weight:800;">${escapeHtml(r.fullName || "Без имени")}</div>
+      <div style="margin-top:6px; font-size:18px; font-weight:700;">
+        ID: ${escapeHtml(r.idCard)}
+      </div>
+
+      <div class="grid">
+        ${field("Структура", r.structure)}
+        ${field("Подразделение", r.subdivision)}
+        ${field("Номер лицензии", r.licenseNumber)}
+        ${field("Дата регистрации", r.registrationDate)}
+        ${field("Дата окончания", r.expirationDate)}
+      </div>
+
+      ${expired 
+        ? '<div class="expired-badge">Лицензия просрочена</div>' 
+        : '<div class="expired-badge" style="background:#062f1a;color:#86efac;border-color:#14532d;">Актуальна</div>'}
+    `;
+
+    container.appendChild(card);
+  }
+}
+
+
+function searchNow() {
+  const q = document.getElementById("searchInput").value.trim();
+  const qDigits = digitsOnly(q);
+
+  if (!qDigits) {
+    document.getElementById("results").innerHTML = "";
+    document.getElementById("resultsEmpty").textContent = "Введите ID карту.";
+    document.getElementById("resultsEmpty").style.display = "block";
+    return;
+  }
+
+  const found = records.filter(r => {
+    const direct = digitsOnly(r.idCard) === qDigits;
+    const anyCell = (r.rawCells || []).some(cell => digitsOnly(cell) === qDigits);
+    return direct || anyCell;
+  });
+
+  renderResults(found);
+}
+
+document.getElementById("refreshBtn").addEventListener("click", refreshData);
+document.getElementById("searchBtn").addEventListener("click", searchNow);
+document.getElementById("searchInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") searchNow();
+});
+
+window.addEventListener("load", async () => {
+  document.getElementById("searchInput").focus();
+  loadCache();
+  setMeta();
+  await refreshData();
+});
+</script>
+</body>
+</html>
