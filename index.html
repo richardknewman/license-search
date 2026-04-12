@@ -322,6 +322,7 @@ function isExpired(expirationDate) {
 
 
 
+
 function renderResults(found) {
   const container = document.getElementById("results");
   const empty = document.getElementById("resultsEmpty");
@@ -351,60 +352,34 @@ function renderResults(found) {
     return 0;
   });
 
-  const primary = found[0];
-  const primaryExpired = isExpired(primary.expirationDate);
+  for (const r of found) {
+    const expired = isExpired(r.expirationDate);
 
-  const hero = document.createElement("div");
-  hero.className = "gov-result";
-  hero.innerHTML = `
-    <div class="gov-status ${primaryExpired ? "invalid" : "valid"}">
-      ${primaryExpired ? "Лицензия недействительна" : "Лицензия действительна"}
-    </div>
-    <div class="gov-substatus">
-      ${found.length > 1 ? `Найдено записей: ${found.length}. Показана наиболее релевантная запись.` : ""}
-    </div>
-    <div class="gov-divider"></div>
-    <div style="font-size:18px; font-weight:800;">${escapeHtml(primary.fullName || "Без имени")} | ${escapeHtml(primary.idCard)}</div>
-    <div class="gov-summary">
-      ${field("Структура", primary.structure)}
-      ${field("Подразделение", primary.subdivision)}
-      ${field("Номер лицензии", primary.licenseNumber)}
-      ${field("Дата регистрации", primary.registrationDate)}
-      ${field("Дата окончания", primary.expirationDate)}
-    </div>
-    <div style="margin-top:14px;">
-      
-    </div>
-  `;
-  container.appendChild(hero);
+    const card = document.createElement("div");
+    card.className = expired ? "card expired" : "card";
 
-  if (found.length > 1) {
-    const info = document.createElement("div");
-    info.className = "gov-multi";
-    info.textContent = "Другие найденные записи";
-    container.appendChild(info);
+    card.innerHTML = `
+      <div class="gov-status ${expired ? "invalid" : "valid"}" style="font-size:20px; margin-bottom:6px;">
+        ${expired ? "Недействительна" : "Действительна"}
+      </div>
 
-    for (const r of found.slice(1)) {
-      const card = document.createElement("div");
-      const expired = isExpired(r.expirationDate);
-      card.className = expired ? "card expired" : "card";
-      card.innerHTML = `
-        <div style="font-size:18px; font-weight:800;">${escapeHtml(r.fullName || "Без имени")} | ${escapeHtml(r.idCard)}</div>
-        <div class="grid">
-          ${field("Структура", r.structure)}
-          ${field("Подразделение", r.subdivision)}
-          ${field("Номер лицензии", r.licenseNumber)}
-          ${field("Дата регистрации", r.registrationDate)}
-          ${field("Дата окончания", r.expirationDate)}
-        </div>
-        <div style="margin-top:10px;">
-          
-        </div>
-      `;
-      container.appendChild(card);
-    }
+      <div style="font-size:18px; font-weight:800;">
+        ${escapeHtml(r.fullName || "Без имени")} | ${escapeHtml(r.idCard)}
+      </div>
+
+      <div class="grid">
+        ${field("Структура", r.structure)}
+        ${field("Подразделение", r.subdivision)}
+        ${field("Номер лицензии", r.licenseNumber)}
+        ${field("Дата регистрации", r.registrationDate)}
+        ${field("Дата окончания", r.expirationDate)}
+      </div>
+    `;
+
+    container.appendChild(card);
   }
 }
+
 
 
 
