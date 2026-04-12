@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Поиск лицензий</title>
+  <title>Проверка лицензии</title>
   <style>
     :root {
       --bg: #07142f;
@@ -20,23 +20,24 @@
     .wrap { max-width: 980px; margin: 0 auto; }
     h1 { margin: 0 0 4px; font-size: 24px; }
     .sub { color: var(--muted); margin-bottom: 10px; font-size: 13px; }
-    .topbar { display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap; }
-    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-top: 10px; }
-    .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+    .topbar { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px; margin-top: 8px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     input[type="text"] {
       width: min(100%, 900px);
       flex: 1 1 700px;
-      padding: 14px 16px;
-      border-radius: 12px;
+      padding: 15px 16px;
+      border-radius: 10px;
       border: 1px solid var(--border);
       background: #08152f;
       color: var(--text);
-      font-size: 18px;
+      font-size: 22px;
       outline: none;
+      letter-spacing: 0.4px;
     }
-    button { border: none; border-radius: 12px; padding: 13px 18px; font-size: 15px; font-weight: 700; cursor: pointer; }
+    button { border: none; border-radius: 10px; padding: 14px 18px; font-size: 15px; font-weight: 700; cursor: pointer; }
     .btn-search, .btn-refresh { background: var(--green); color: #00140a; }
-    .status { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: #09162f; color: var(--muted); font-size: 13px; }
+    .status { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: #09162f; color: var(--muted); font-size: 12px; }
     .status.ok { border-left: 4px solid var(--green); }
     .status.warn { border-left: 4px solid var(--warn); }
     .status.err { border-left: 4px solid var(--red); }
@@ -46,28 +47,66 @@
     .card { border: 1px solid var(--border); border-radius: 14px; background: #0a1733; padding: 14px; margin-top: 10px; }
 .card.expired { border-color: #ef4444; box-shadow: 0 0 0 1px #ef444433 inset; }
 .expired-badge { display:inline-block; margin-top:10px; padding:8px 12px; border-radius:999px; background:#3a0f18; color:#fecaca; border:1px solid #7f1d1d; font-weight:700; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-top: 10px; }
-    .field { background: #0d1c3b; border-radius: 10px; padding: 10px; border: 1px solid #20375c; }
-    .label { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-    .value { font-size: 15px; word-break: break-word; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 10px; }
+    .field { font-size:12px; background: #0d1c3b; border-radius: 10px; padding: 10px; border: 1px solid #20375c; }
+    .label { font-size:10px; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    .value { font-size:12px; font-size: 15px; word-break: break-word; }
+    .gov-result { text-align: center; padding: 12px 10px; }
+    .gov-status {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      line-height: 1.1;
+      margin: 0 0 10px;
+      text-transform: uppercase;
+    }
+    .gov-status.valid { color: #86efac; }
+    .gov-status.invalid { color: #fca5a5; }
+    .gov-status.missing { color: #fde68a; }
+    .gov-substatus {
+      font-size: 15px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .gov-divider {
+      height: 1px;
+      background: #20375c;
+      margin: 16px 0;
+    }
+    .gov-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+      text-align: left;
+    }
+    .gov-summary .field { font-size:12px;
+      min-height: 72px;
+    }
+    .gov-multi {
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="topbar">
       <div>
-        <h1>Поиск лицензий</h1>
+        <h1>Проверка лицензии</h1>
       </div>
       <button class="btn-refresh" id="refreshBtn">Обновить</button>
     </div>
 
-    <div id="statusBox" class="status panel">Загрузка...</div>
+    
 
     <div class="panel">
-      <div style="font-weight:700; margin-bottom:10px; font-size:15px;">Поиск по ID карте</div>
+      <div style="font-weight:700; margin-bottom:10px; font-size:15px;">Проверка по ID карте</div>
       <div class="row">
         <input id="searchInput" type="text" placeholder="Введите ID карту" />
-        <button class="btn-search" id="searchBtn">Найти</button>
+        <button class="btn-search" id="searchBtn">Проверить</button>
       </div>
       
       <div class="meta">
@@ -77,8 +116,8 @@
     </div>
 
     <div class="panel">
-      <div style="font-weight:700; margin-bottom:10px; font-size:15px;">Результат</div>
-      <div class="empty" id="resultsEmpty">Введите ID карту.</div>
+      
+      <div class="empty" id="resultsEmpty">Введите ID карту для проверки.</div>
       <div id="results"></div>
     </div>
   </div>
@@ -108,11 +147,6 @@ function digitsOnly(s) {
   return String(s ?? "").replace(/\D/g, "");
 }
 
-function setStatus(text, type = "ok") {
-  const box = document.getElementById("statusBox");
-  box.textContent = text;
-  box.className = "status panel " + type;
-}
 
 function setMeta() {
   document.getElementById("countBadge").textContent = `Записей в памяти: ${records.length}`;
@@ -237,8 +271,7 @@ async function loadSheet(sheetName) {
 }
 
 async function refreshData() {
-  setStatus("Обновление данных...", "ok");
-
+  
   try {
     let all = [];
     for (const sheetName of SHEET_NAMES) {
@@ -253,17 +286,14 @@ async function refreshData() {
     lastUpdated = new Date().toISOString();
     saveCache();
     setMeta();
-    setStatus(`Обновлено. Загружено записей: ${records.length}`, "ok");
-  } catch (e) {
+      } catch (e) {
     const hasCache = loadCache();
     if (hasCache) {
-      setStatus("Не удалось обновить из сети. Показана локальная версия.", "warn");
-    } else {
+          } else {
       records = [];
       lastUpdated = null;
       setMeta();
-      setStatus("Обновить данные не получилось, и локального кэша нет.", "err");
-    }
+          }
   }
 }
 
@@ -291,69 +321,91 @@ function isExpired(expirationDate) {
 }
 
 
+
 function renderResults(found) {
   const container = document.getElementById("results");
   const empty = document.getElementById("resultsEmpty");
   container.innerHTML = "";
 
   if (!found.length) {
-    empty.textContent = "Ничего не найдено.";
-    empty.style.display = "block";
+    empty.style.display = "none";
+    const block = document.createElement("div");
+    block.className = "gov-result";
+    block.innerHTML = `
+      <div class="gov-status missing">Данные не найдены</div>
+      <div class="gov-substatus">По указанному ID карта запись не обнаружена.</div>
+    `;
+    container.appendChild(block);
     return;
   }
 
   empty.style.display = "none";
 
-  // сортировка: сначала не просроченные, потом по дате окончания (свежие выше)
   found.sort((a, b) => {
     const da = parseRuDate(a.expirationDate);
     const db = parseRuDate(b.expirationDate);
-
     const expA = isExpired(a.expirationDate);
     const expB = isExpired(b.expirationDate);
-
     if (expA !== expB) return expA ? 1 : -1;
-
     if (da && db) return db - da;
     return 0;
   });
 
-  // если больше одного результата — показать количество
+  const primary = found[0];
+  const primaryExpired = isExpired(primary.expirationDate);
+
+  const hero = document.createElement("div");
+  hero.className = "gov-result";
+  hero.innerHTML = `
+    <div class="gov-status ${primaryExpired ? "invalid" : "valid"}">
+      ${primaryExpired ? "Лицензия недействительна" : "Лицензия действительна"}
+    </div>
+    <div class="gov-substatus">
+      ${found.length > 1 ? `Найдено записей: ${found.length}. Показана наиболее релевантная запись.` : ""}
+    </div>
+    <div class="gov-divider"></div>
+    <div style="font-size:18px; font-weight:800;">${escapeHtml(primary.fullName || "Без имени")} | ${escapeHtml(primary.idCard)}</div>
+    <div class="gov-summary">
+      ${field("Структура", primary.structure)}
+      ${field("Подразделение", primary.subdivision)}
+      ${field("Номер лицензии", primary.licenseNumber)}
+      ${field("Дата регистрации", primary.registrationDate)}
+      ${field("Дата окончания", primary.expirationDate)}
+    </div>
+    <div style="margin-top:14px;">
+      
+    </div>
+  `;
+  container.appendChild(hero);
+
   if (found.length > 1) {
     const info = document.createElement("div");
-    info.style.marginBottom = "10px";
-    info.style.color = "#a7b4c8";
-    info.textContent = "Найдено записей: " + found.length;
+    info.className = "gov-multi";
+    info.textContent = "Другие найденные записи";
     container.appendChild(info);
-  }
 
-  for (const r of found) {
-    const card = document.createElement("div");
-    const expired = isExpired(r.expirationDate);
-    card.className = expired ? "card expired" : "card";
-
-    card.innerHTML = `
-      <div style="font-size:26px; font-weight:800;">${escapeHtml(r.fullName || "Без имени")}</div>
-      <div style="margin-top:6px; font-size:18px; font-weight:700;">
-        ID: ${escapeHtml(r.idCard)}
-      </div>
-
-      <div class="grid">
-        ${field("Структура", r.structure)}
-        ${field("Подразделение", r.subdivision)}
-        ${field("Номер лицензии", r.licenseNumber)}
-        ${field("Дата регистрации", r.registrationDate)}
-        ${field("Дата окончания", r.expirationDate)}
-      </div>
-
-      ${expired 
-        ? '<div class="expired-badge">Лицензия просрочена</div>' 
-        : '<div class="expired-badge" style="background:#062f1a;color:#86efac;border-color:#14532d;">Актуальна</div>'}
-    `;
-
-    container.appendChild(card);
+    for (const r of found.slice(1)) {
+      const card = document.createElement("div");
+      const expired = isExpired(r.expirationDate);
+      card.className = expired ? "card expired" : "card";
+      card.innerHTML = `
+        <div style="font-size:18px; font-weight:800;">${escapeHtml(r.fullName || "Без имени")} | ${escapeHtml(r.idCard)}</div>
+        <div class="grid">
+          ${field("Структура", r.structure)}
+          ${field("Подразделение", r.subdivision)}
+          ${field("Номер лицензии", r.licenseNumber)}
+          ${field("Дата регистрации", r.registrationDate)}
+          ${field("Дата окончания", r.expirationDate)}
+        </div>
+        <div style="margin-top:10px;">
+          
+        </div>
+      `;
+      container.appendChild(card);
+    }
   }
 }
+
 
 
 function searchNow() {
@@ -362,7 +414,7 @@ function searchNow() {
 
   if (!qDigits) {
     document.getElementById("results").innerHTML = "";
-    document.getElementById("resultsEmpty").textContent = "Введите ID карту.";
+    document.getElementById("resultsEmpty").textContent = "Введите ID карту для проверки.";
     document.getElementById("resultsEmpty").style.display = "block";
     return;
   }
