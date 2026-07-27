@@ -401,6 +401,12 @@ function searchNow() {
   });
 
   renderResults(found);
+
+  // Оставляем найденный ID в поле, но выделяем его целиком.
+  // При следующем вводе старое значение автоматически заменится.
+  const searchInput = document.getElementById("searchInput");
+  searchInput.focus();
+  searchInput.select();
 }
 
 document.getElementById("refreshBtn").addEventListener("click", refreshData);
