@@ -97,7 +97,10 @@
       <div>
         <h1>Проверка лицензии</h1>
       </div>
-      <button class="btn-refresh" id="refreshBtn">Обновить</button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn-refresh" id="listBtn">Список лицензий</button>
+        <button class="btn-refresh" id="refreshBtn">Обновить</button>
+      </div>
     </div>
 
     
@@ -129,6 +132,7 @@ const CACHE_KEY = "license_cache_final_v1";
 
 let records = [];
 let lastUpdated = null;
+let listVisible = false;
 
 function escapeHtml(s) {
   return String(s ?? "")
@@ -383,7 +387,30 @@ function renderResults(found) {
 
 
 
+
+function toggleLicenseList() {
+  const button = document.getElementById("listBtn");
+  const input = document.getElementById("searchInput");
+
+  if (!listVisible) {
+    renderResults([...records]);
+    listVisible = true;
+    button.textContent = "Скрыть список";
+  } else {
+    document.getElementById("results").innerHTML = "";
+    const empty = document.getElementById("resultsEmpty");
+    empty.textContent = "Введите ID карту для проверки.";
+    empty.style.display = "block";
+    listVisible = false;
+    button.textContent = "Список лицензий";
+    input.focus();
+    input.select();
+  }
+}
+
 function searchNow() {
+  listVisible = false;
+  document.getElementById("listBtn").textContent = "Список лицензий";
   const q = document.getElementById("searchInput").value.trim();
   const qDigits = digitsOnly(q);
 
@@ -410,6 +437,7 @@ function searchNow() {
 }
 
 document.getElementById("refreshBtn").addEventListener("click", refreshData);
+document.getElementById("listBtn").addEventListener("click", toggleLicenseList);
 document.getElementById("searchBtn").addEventListener("click", searchNow);
 document.getElementById("searchInput").addEventListener("keydown", (e) => {
   if (e.key === "Enter") searchNow();
